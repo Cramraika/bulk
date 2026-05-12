@@ -8,28 +8,28 @@
 
 `bulk` is a **production-grade CSV-driven bulk webhook/API firing engine** with adaptive throttling, checkpoint/resume, watchdog auto-processing, REST status API, and SQLite job tracking. Single-file Python app (~191 KB). Public Cramraika org repo, MIT. Renamed from `bulk_api_trigger` → `bulk` 2026-04-19. Supersedes archived `webhook_trigger`. Vagary Labs brand: **OSS Utilities** (sponsor-ready).
 
-## Coverage Today (post-PCN-S6/S7/S11A)
+<!-- Coolify-DB live-truth as of platform-docs ENTRY #316-T20260512T140000Z (Wave 5-D Substrate Drift Compound, W5-D-CROSS-REPO-PRS subagent) — no `bulk` app present in Coolify (queried `applications` table via SSH fallback to vagary-core-1 since coolify MCP `localhost:3000` unreachable from this Mac session). Confirms DECOMMISSIONED. §53 R2 recurrence path-(a) preventive root-cause per spec `~/.claude/specs/R2-claudemd-coolifydb-drift-rootcause.md` + memory rule `feedback_claudemd_coolify_db_truth_sync.md`. Repo retained as historical artefact; bulk functionality absorbed into vagary-platform notifications-fanout module (A1 refactor commits `3ae5553` + `3f337a7`). -->
 
-Per matrix row `bulk`:
+## Coverage Today (post-PCN-S6/S7/S11A; DECOMMISSIONED 2026-05-12)
+
+Per matrix row `bulk` (T = decommissioned tombstone; standalone runtime retired):
 
 ```
 Mail | DNS | RP | Orch | Obs | Backup | Sup | Sec | Tun | Err | Wflw | Spec
- U   | U   | U  | U    | T   | U      | T   | U   | NA  | T   | NA   | NA
+ NA  | NA  | NA | NA   | NA  | NA     | T   | NA  | NA  | NA  | NA   | NA
 ```
 
-- USED: Mail (only repo currently using transactional SMTP via Postfix on Main per CX-MATRIX inline observation), DNS, RP (LiteSpeed), Orch (Coolify Main), Backup, Sec (Coolify env vars; Infisical pending).
-- TRIGGER-TO-WIRE: Obs (per-app Prom + Loki dashboard — Cluster 4), Sup (Cosign post-PR-#50 — Cluster 3), Err (GlitchTip DSN migration to relay — Cluster 2).
-- NA: Tun, Wflw, Spec.
+- **Production status: DECOMMISSIONED** — no Coolify app present (verified ENTRY #316 Coolify-DB query); all runtime dimensions therefore NA.
+- TOMBSTONE (T): Sup dimension only — repo retained on GitHub as historical artefact; absorbed by `vagary-platform` notifications-fanout module.
+- Prior matrix row (pre-decommission, retained for historical context only): `U | U | U | U | T | U | T | U | NA | T | NA | NA`.
 
 ## What's Wired
 
-- **Production:** Coolify on Main (Dockerfile build pack).
-- **CI:** GitHub Actions — lint (flake8 E9,F63,F7) + pip-audit + Docker build. **GREEN.**
-- **CodeQL** weekly + on PR (Python, security-and-quality).
-- **Renovate** weekly Sun 22:00 UTC.
-- **GlitchTip:** project `bulk-api`; DSN via Coolify env.
-- **Loki:** Promtail Docker SD; container `bulk-api-trigger`.
-- **REST endpoints:** `/health`, `/status`, `/metrics`, `/jobs`, `/jobs/{id}`, `/jobs/{id}/errors`, `/resume/stats`.
+- **Production:** **DECOMMISSIONED.** No Coolify app exists (live verification via Coolify-DB query: zero `bulk*` rows in `applications` table). The prior claim "Coolify on Main (Dockerfile build pack)" was drift; the Coolify deployment was retired when `vagary-platform` absorbed bulk's notifications-fanout responsibility (A1 refactor commits `3ae5553` + `3f337a7`). See `vagary-platform/CLAUDE.md` § Dependency Graph for the absorbed module's live home.
+- **Historical references (no longer live):** ~~GlitchTip project `bulk-api`; DSN via Coolify env~~ — N/A post-decommission; ~~Loki Promtail Docker SD container `bulk-api-trigger`~~ — N/A; ~~REST endpoints~~ — N/A (the application is no longer running anywhere).
+- **CI:** GitHub Actions — lint (flake8 E9,F63,F7) + pip-audit + Docker build. **GREEN** — retained for any future reactivation but no images currently pushed to a live registry.
+- **CodeQL** weekly + on PR (Python, security-and-quality) — repo-level scanning preserved.
+- **Renovate** weekly Sun 22:00 UTC — dependency hygiene preserved on the artefact.
 
 ## Stack
 
