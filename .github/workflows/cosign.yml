@@ -16,9 +16,6 @@
 name: Cosign image signing
 
 on:
-  push:
-    branches: [main]
-    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -35,6 +32,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Lowercase image repo
+        run: echo "IMAGE_REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -49,7 +49,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ghcr.io/${{ env.IMAGE_REPO_LOWER }}
           tags: |
             type=ref,event=branch
             type=ref,event=tag
@@ -82,7 +82,7 @@ jobs:
       - name: Generate SBOM (syft)
         uses: anchore/sbom-action@v0
         with:
-          image: ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}
+          image: ghcr.io/${{ env.IMAGE_REPO_LOWER }}@${{ steps.build.outputs.digest }}
           format: spdx-json
           output-file: sbom.spdx.json
 
@@ -93,10 +93,10 @@ jobs:
         run: |
           cosign attest --yes --key env://COSIGN_PRIVATE_KEY \
             --predicate sbom.spdx.json --type spdxjson \
-            "ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}"
+            "ghcr.io/${{ env.IMAGE_REPO_LOWER }}@${{ steps.build.outputs.digest }}"
 
       - name: Verify signature (smoke test)
         run: |
           cosign verify \
             --key https://gist.githubusercontent.com/Cramraika/c246bdb779518a588617839bfe2a75c1/raw/cosign.pub \
-            "ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}"
+            "ghcr.io/${{ env.IMAGE_REPO_LOWER }}@${{ steps.build.outputs.digest }}"
