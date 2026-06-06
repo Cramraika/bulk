@@ -1,0 +1,112 @@
+# =============================================
+# Trivy CVE scan (T1 — per-repo CI gate)
+# =============================================
+# Per ADR-041 (Trivy + Cosign deploy gate) and the T1-fanout enablement
+# procedure in platform-docs 02-governance/service-playbooks/security/trivy.md §3.
+#
+# Scans the working tree (`trivy fs`) for HIGH+CRITICAL CVEs in lockfiles +
+# Dockerfile. Pairs with the existing cosign-sign-image.yml (image signing on
+# tag push) — together they are the T1 leg of the supply-chain gate.
+#
+# Runner-label discipline (fleet-wide): runs-on uses the
+# `${{ vars.RUNNER_TYPE || 'self-hosted' }}` pattern. Cramraika billing blocks
+# GitHub-hosted (ubuntu-latest) runners; the self-hosted runners are
+# macOS-ARM64. The canonical project-template trivy.yml uses ubuntu-latest +
+# the aquasecurity/trivy-action container action — neither works on this fleet
+# (container jobs are unsupported on macOS runners). Trivy is therefore
+# installed via arch-detecting curl, mirroring host_page/ci.yml.
+#
+# Posture: ADVISORY (exit-code 0 — warn-only). SARIF surfaces as a build
+# artifact (NOT uploaded to GitHub Code Scanning: that needs GitHub Advanced
+# Security, a paid feature on private repos — violates Principle #5 zero-paid).
+# Tighten to blocking by flipping `--exit-code 0` to `1` after a clean baseline
+# (per trivy.md §3 phased rollout).
+
+name: Trivy CVE scan
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['*.md', 'docs/**', '.claude/**', '.vscode/**']
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly drift sweep — catch newly-disclosed CVEs in unchanged deps
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  TRIVY_VERSION: "0.70.0"  # substrate-pinned per ADR-016
+
+jobs:
+  trivy-fs:
+    name: Trivy filesystem scan
+    runs-on: ${{ vars.RUNNER_TYPE || 'self-hosted' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Trivy
+        env:
+          TRIVY_VERSION: ${{ env.TRIVY_VERSION }}
+        run: |
+          set -euo pipefail
+          # Detect runner OS+arch — self-hosted runner is macOS-ARM64;
+          # GitHub-hosted ubuntu-latest is Linux-64bit. Trivy release asset
+          # names use mixed case ("Linux-64bit", "macOS-ARM64").
+          UNAME_S="$(uname -s)"
+          UNAME_M="$(uname -m)"
+          case "${UNAME_S}-${UNAME_M}" in
+            Darwin-arm64)  TRIVY_ASSET="macOS-ARM64" ;;
+            Darwin-x86_64) TRIVY_ASSET="macOS-64bit" ;;
+            Linux-x86_64)  TRIVY_ASSET="Linux-64bit" ;;
+            Linux-aarch64) TRIVY_ASSET="Linux-ARM64" ;;
+            *) echo "Unsupported runner platform: ${UNAME_S}-${UNAME_M}" >&2; exit 1 ;;
+          esac
+          # User-writable cache dir — no sudo on the self-hosted macOS runner.
+          TRIVY_DIR="${RUNNER_TOOL_CACHE:-$HOME/.cache}/trivy/${TRIVY_VERSION}"
+          mkdir -p "${TRIVY_DIR}"
+          curl -fsSL -o /tmp/trivy.tgz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_${TRIVY_ASSET}.tar.gz"
+          tar -xzf /tmp/trivy.tgz -C "${TRIVY_DIR}" trivy
+          chmod +x "${TRIVY_DIR}/trivy"
+          echo "${TRIVY_DIR}" >> "${GITHUB_PATH}"
+          "${TRIVY_DIR}/trivy" --version
+
+      - name: Trivy filesystem scan (HIGH,CRITICAL — advisory)
+        id: trivy
+        run: |
+          trivy fs \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --no-progress \
+            --exit-code 0 \
+            --format table \
+            .
+
+      - name: Trivy filesystem scan (SARIF for artifact)
+        run: |
+          trivy fs \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --no-progress \
+            --exit-code 0 \
+            --format sarif \
+            --output trivy-results.sarif \
+            .
+
+      - name: Upload SARIF artifact
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-sarif
+          path: trivy-results.sarif
+          if-no-files-found: warn
