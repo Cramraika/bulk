@@ -400,7 +400,15 @@ BASE_RATE_LIMIT=1.0
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please feel free to submit a Pull Request. See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+
+## 📄 License
+
+This project is licensed under the [MIT License](./LICENSE) — free to use, modify, and distribute.
+
+## 💛 Support
+
+If this tool is useful to you, consider [sponsoring on GitHub](https://github.com/sponsors/Cramraika) or [reaching out](https://chinmayramraika.in). Sponsorship keeps it maintained and funds new adapters.
 
 
 Built with ❤️ for reliable webhook processing at scale
