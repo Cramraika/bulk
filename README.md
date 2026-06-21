@@ -9,7 +9,7 @@
 
 Production-ready platform for triggering thousands of webhooks/APIs with advanced features including REST API endpoints, resume support, file watchdog, auto-processing, comprehensive notifications, and real-time monitoring.
 
-## 💖 Sponsor this project
+## 💛 Support
 
 If this platform powers your operations, [sponsor on GitHub](https://github.com/sponsors/Cramraika) — your support keeps it maintained and funds new adapters (Salesforce, HubSpot, LeadSquared). Or [reach out](https://chinmayramraika.in) about enterprise deployment and custom integrations.
 
@@ -405,10 +405,6 @@ Contributions are welcome! Please feel free to submit a Pull Request. See [CONTR
 ## 📄 License
 
 This project is licensed under the [MIT License](./LICENSE) — free to use, modify, and distribute.
-
-## 💛 Support
-
-If this tool is useful to you, consider [sponsoring on GitHub](https://github.com/sponsors/Cramraika) or [reaching out](https://chinmayramraika.in). Sponsorship keeps it maintained and funds new adapters.
 
 
 Built with ❤️ for reliable webhook processing at scale
