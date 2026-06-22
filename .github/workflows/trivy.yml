@@ -16,11 +16,13 @@
 # (container jobs are unsupported on macOS runners). Trivy is therefore
 # installed via arch-detecting curl, mirroring host_page/ci.yml.
 #
-# Posture: ADVISORY (exit-code 0 — warn-only). SARIF surfaces as a build
-# artifact (NOT uploaded to GitHub Code Scanning: that needs GitHub Advanced
-# Security, a paid feature on private repos — violates Principle #5 zero-paid).
-# Tighten to blocking by flipping `--exit-code 0` to `1` after a clean baseline
-# (per trivy.md §3 phased rollout).
+# Posture: BLOCKING (exit-code 1 — fails CI on a fixable HIGH/CRITICAL).
+# Flipped from advisory after a verified-clean baseline (`trivy fs` exits 0
+# on 2026-06-23) per trivy.md §3 phased rollout (OW-524). The SARIF step uses
+# `if: always()` so the SARIF artifact still uploads when the blocking table
+# step fails. SARIF is NOT uploaded to GitHub Code Scanning: that needs GitHub
+# Advanced Security, a paid feature on private repos — violates Principle #5
+# zero-paid.
 
 name: Trivy CVE scan
 
@@ -80,18 +82,19 @@ jobs:
           echo "${TRIVY_DIR}" >> "${GITHUB_PATH}"
           "${TRIVY_DIR}/trivy" --version
 
-      - name: Trivy filesystem scan (HIGH,CRITICAL — advisory)
+      - name: Trivy filesystem scan (HIGH,CRITICAL — blocking)
         id: trivy
         run: |
           trivy fs \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
             --no-progress \
-            --exit-code 0 \
+            --exit-code 1 \
             --format table \
             .
 
       - name: Trivy filesystem scan (SARIF for artifact)
+        if: always()
         run: |
           trivy fs \
             --severity HIGH,CRITICAL \
