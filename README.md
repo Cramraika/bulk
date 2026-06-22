@@ -40,14 +40,14 @@ If this platform powers your operations, [sponsor on GitHub](https://github.com/
 
 ```bash
 # Clone repository
-git clone <your-repo-url>
-cd bulk-api-trigger
+git clone https://github.com/Cramraika/bulk.git
+cd bulk
 
 # Create directory structure
 mkdir -p data/{csv/{processed,duplicates,rejected},reports,logs,backups}
 
 # Configure environment
-cp .env.sample .env
+cp .env.example .env
 # Edit .env with your settings
 
 # Start with Docker Compose
@@ -140,6 +140,9 @@ curl http://localhost:8000/jobs/{job_id}
 
 # Job errors
 curl http://localhost:8000/jobs/{job_id}/errors
+
+# Job report
+curl http://localhost:8000/jobs/{job_id}/report
 
 # System metrics
 curl http://localhost:8000/metrics
