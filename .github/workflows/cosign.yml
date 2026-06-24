@@ -16,6 +16,9 @@
 name: Cosign image signing
 
 on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
   workflow_dispatch:
 
 permissions:
@@ -25,7 +28,8 @@ permissions:
 
 jobs:
   build-sign-push:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_TYPE || 'ubuntu-latest' }}
+    if: hashFiles('Dockerfile', 'Dockerfile.*', '**/Dockerfile') != ''
     steps:
       - name: Checkout
         uses: actions/checkout@v4
