@@ -17,6 +17,9 @@ hold without a Read.
 
 <!-- END PLAYBOOKS BLOCK -->
 
+## License classification: free-OSS (MIT)
+`bulk` is a sponsor-ready public OSS utility (MIT) — matches the `pulseboard-desktop` posture, NOT commercial-bound (corrects OW-614's framing per `commercial-bound.md` line 39-43, which lists bulk under sponsor-ready-public not commercial-bound). The §50.2 cgc-over-gitnexus guard still applies: any redistributed graph derivative MUST come from CGC (`codegraphcontext`, MIT), never GitNexus (PolyForm-NC). This in-repo line is the routing signal §50.2 wants.
+
 ---
 
 # bulk — CLAUDE.md v2
