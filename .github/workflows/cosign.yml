@@ -1,10 +1,10 @@
-# Cosign image-signing workflow template — copy to <repo>/.github/workflows/cosign.yml
+# Cosign image-signing workflow template - copy to <repo>/.github/workflows/cosign.yml
 # Per ADR-041 (Trivy + Cosign deploy gate). Sample distribution scope: 18 app repos.
 #
 # Required GitHub secrets (pull from Infisical-CI MI):
-#   COSIGN_PRIVATE_KEY  — base64-encoded private key
-#   COSIGN_PASSWORD     — passphrase for private key
-#   GHCR_PAT            — GitHub PAT with write:packages (or use built-in GITHUB_TOKEN if same org)
+#   COSIGN_PRIVATE_KEY  - base64-encoded private key
+#   COSIGN_PASSWORD     - passphrase for private key
+#   GHCR_PAT            - GitHub PAT with write:packages (or use built-in GITHUB_TOKEN if same org)
 #
 # Public key for verification: published at https://gist.githubusercontent.com/Cramraika/c246bdb779518a588617839bfe2a75c1/raw/cosign.pub
 # Coolify pre-deploy hook (vps_host/scripts/coolify-hooks/trivy-pre-deploy.sh):
