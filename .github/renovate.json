@@ -1,13 +1,17 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>Cramraika/.github"],
+  "extends": [
+    "github>Cramraika/.github"
+  ],
   "packageRules": [
     {
       "description": "OSS: auto-merge ALL minor (non-major)",
-      "matchUpdateTypes": ["minor"],
+      "matchUpdateTypes": [
+        "minor"
+      ],
       "automerge": true,
-      "automergeType": "branch",
-      "platformAutomerge": true
+      "automergeType": "pr",
+      "platformAutomerge": false
     }
   ]
 }
