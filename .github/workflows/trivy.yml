@@ -53,7 +53,7 @@ jobs:
     runs-on: ${{ vars.RUNNER_TYPE || 'self-hosted' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Install Trivy
         env:
@@ -108,7 +108,7 @@ jobs:
       - name: Upload SARIF artifact
         if: always()
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: trivy-sarif
           path: trivy-results.sarif
