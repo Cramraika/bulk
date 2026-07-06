@@ -1,6 +1,6 @@
 # Integration: route bulk egress through fleet-webhook-egress (OW-698)
 
-**Status:** integration branch (`feat/ow-698-fleet-webhook-egress-integration`) — NOT merged, NOT deployed.
+**Status:** WIRED on `main` 2026-07-06 — the opt-in branch is APPLIED at the send-site (`make_request`, before the retry loop) and the fleet service is deployed + live (`vagary-core/services/webhook-egress`, `fleet-webhook-egress:0.1.0` on compute-1). Inert until `FLEET_WEBHOOK_EGRESS_URL` is set; bulk is decommissioned so there is no live cutover to run — the wire is code-complete, opt-in, and degrade-safe (enqueue failure falls through to the inline path).
 
 ## Why
 
@@ -41,7 +41,11 @@ if fleet_egress_client.is_enabled():
     # on enqueue failure, fall through to the existing inline path (degrade-safe)
 ```
 
-(Left as a documented insertion rather than an applied edit because `webhook_trigger.py` is large and this branch must not change live behavior until cutover.)
+(APPLIED 2026-07-06 in `make_request()` just before the retry loop — the fleet service owns retry, so
+the offload happens once, not per-attempt. The in-scope idempotency key is a content hash of
+`method:url:payload` — `make_request` has no `job_id`/`row_index`, and the hash dedups identical rows on
+resume/replay just the same. Verified: `python3 -m py_compile` OK; `is_enabled()` False when the env var is
+unset (zero behavior change) / True when set.)
 
 ## Config (Infisical-rendered at deploy)
 

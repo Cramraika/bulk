@@ -32,6 +32,13 @@ import sqlite3
 import hashlib
 import shutil
 from datetime import datetime, timezone
+
+try:
+    # OW-698: opt-in adapter to offload egress to the fleet-webhook-egress service.
+    # Guarded so a missing adapter never breaks bulk's inline path.
+    import fleet_egress_client
+except Exception:  # pragma: no cover
+    fleet_egress_client = None
 from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 import heapq
 from threading import Lock, Semaphore, Event, Thread
@@ -1414,6 +1421,38 @@ def make_request(
     base_backoff = max(0.1, float(retry_delay if retry_delay is not None else 1.0))
     backoff = backoff_override if backoff_override is not None else base_backoff
     error_code = 1  # assume failure until success
+
+    # OW-698 fleet-webhook-egress: opt-in egress offload (active ONLY when FLEET_WEBHOOK_EGRESS_URL is set).
+    # When enabled, hand the delivery to the fleet service (it owns durable retry/HMAC-sign/audit) and return;
+    # when unset, fall through to bulk's existing inline retry loop VERBATIM (zero behavior change). The
+    # content-hash idempotency key dedups identical rows across resume/replay.
+    if fleet_egress_client is not None and fleet_egress_client.is_enabled():
+        method_u = (method or 'GET').upper()
+        try:
+            idem = hashlib.sha256(
+                f"{method_u}:{url}:{json.dumps(payload, sort_keys=True, default=str)}".encode('utf-8')
+            ).hexdigest()
+        except Exception:
+            idem = None
+        accepted, delivery_id, err = fleet_egress_client.enqueue(
+            url,
+            payload if isinstance(payload, dict) else {"value": payload},
+            event_type="bulk.webhook.fired",
+            custom_headers=headers or None,
+            idempotency_key=idem,
+        )
+        if accepted:
+            results_tracker.record({
+                'url': url,
+                'method': method_u,
+                'status': 'queued',
+                'status_code': 202,
+                'delivery_id': delivery_id,
+                'timestamp': datetime.now().isoformat(),
+            })
+            return 0
+        # enqueue failed → degrade-safe: fall through to the inline delivery path below
+        logger.warning(f"fleet-webhook-egress enqueue failed for {url}: {err}; falling back to inline delivery")
 
     while attempt <= max_retries:
         attempt += 1
