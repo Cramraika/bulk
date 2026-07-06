@@ -1,11 +1,7 @@
 # 🚀 Enhanced Bulk API Trigger Platform v2.0
 
-> ⚠️ **DECOMMISSIONED (2026-07-06) — kept public as a reference / re-deployment template only.**
-> This standalone tool is retired (not deployed anywhere). Its capabilities now live in the Vagary topology:
-> **webhook egress → `vagary-core/services/webhook-egress`** (a live, HMAC-signed, durable delivery service)
-> and **batch fanout + rate-limiting → the `vagary-platform` notifications framework** (ported). The repo no
-> longer runs renovate/cosign/deploy CI or fleet post-commit hooks (security scans — CodeQL/Trivy — remain).
-> See `CLAUDE.md`.
+> ⚠️ **No longer actively maintained (2026-07-06).** This project is archived and kept public as a
+> reference. It still works for its purpose below; community forks and contributions are welcome.
 
 > **Fire thousands of webhooks/APIs from a CSV — with resume, rate-limiting, and real-time monitoring.**
 
