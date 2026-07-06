@@ -30,6 +30,14 @@ hold without a Read.
 
 ## Identity & Role
 
+**DECOMMISSIONED + ABSORBED (2026-07-06).** `bulk` is **not a standalone product** — it is a retired utility
+(a "service", not its own project) whose capabilities are now homed in the Vagary topology: **egress →
+`vagary-core/services/webhook-egress`** (ADR-105); **fanout + rate-limiter → `vagary-platform` notifications
+framework** (ported — `backend/framework/notifications/fanout/`). Nothing functional is lost by its retirement.
+The repo is kept **public (MIT), reference / re-deployment template only**, and **de-tooled** (renovate +
+cosign + grafana-deploy CI and the fleet post-commit hook removed; CodeQL + Trivy security scans retained).
+Historical identity follows.
+
 `bulk` is a **production-grade CSV-driven bulk webhook/API firing engine** with adaptive throttling, checkpoint/resume, watchdog auto-processing, REST status API, and SQLite job tracking. Single-file Python app (~191 KB). Public Cramraika org repo, MIT. Renamed from `bulk_api_trigger` → `bulk` 2026-04-19. Supersedes archived `webhook_trigger`. Vagary Labs brand: **OSS Utilities** (sponsor-ready).
 
 <!-- Coolify-DB live-truth as of platform-docs ENTRY #316-T20260512T140000Z (Wave 5-D Substrate Drift Compound, W5-D-CROSS-REPO-PRS subagent) — no `bulk` app present in Coolify (queried `applications` table via SSH fallback to vagary-core-1 since coolify MCP `localhost:3000` unreachable from this Mac session). Confirms DECOMMISSIONED. §53 R2 recurrence path-(a) preventive root-cause per spec `~/.claude/specs/R2-claudemd-coolifydb-drift-rootcause.md` + memory rule `feedback_claudemd_coolify_db_truth_sync.md`. Repo retained as historical artefact; bulk functionality absorbed into vagary-platform notifications-fanout module (A1 refactor commits `3ae5553` + `3f337a7`). -->
