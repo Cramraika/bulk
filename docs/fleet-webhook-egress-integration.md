@@ -47,6 +47,13 @@ the offload happens once, not per-attempt. The in-scope idempotency key is a con
 resume/replay just the same. Verified: `python3 -m py_compile` OK; `is_enabled()` False when the env var is
 unset (zero behavior change) / True when set.)
 
+## Known fidelity gap (latent — inert while the adapter is off)
+
+The fleet-webhook-egress `POST /v1/deliveries` job carries `url` + `payload` but **no HTTP method** — the
+service delivers via POST. So a bulk row whose method is `PUT`/`GET`/`PATCH` would be delivered as `POST`
+if the adapter were enabled. Inert today (bulk decommissioned; adapter opt-in/unset), but a future consumer
+that fires non-POST webhooks needs the service's delivery contract to carry the method first.
+
 ## Config (Infisical-rendered at deploy)
 
 | Env | Meaning |
