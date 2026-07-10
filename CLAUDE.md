@@ -30,12 +30,18 @@ hold without a Read.
 
 ## Identity & Role
 
-**DECOMMISSIONED + ABSORBED (2026-07-06).** `bulk` is **not a standalone product** — it is a retired utility
-(a "service", not its own project) whose capabilities are now homed in the Vagary topology: **egress →
-`vagary-core/services/webhook-egress`** (ADR-105); **fanout + rate-limiter → `vagary-platform` notifications
-framework** (ported — `backend/framework/notifications/fanout/`). Nothing functional is lost by its retirement.
-The repo is kept **public (MIT), reference / re-deployment template only**, and **de-tooled** (renovate +
-cosign + grafana-deploy CI and the fleet post-commit hook removed; CodeQL + Trivy security scans retained).
+**RUNTIME-DECOMMISSIONED (2026-07-06); code intact.** `bulk` is **not a standalone deployed product** — no
+Coolify app exists (verified below) and it is de-tooled (renovate + cosign + grafana-deploy CI and the fleet
+post-commit hook removed; CodeQL + Trivy security scans retained). **Precisely what "absorbed" means (this was
+previously overstated as a wholesale migration):** `webhook_trigger.py`'s own inline egress (`make_request()`)
+and fanout/notifications (`NotificationManager`) logic is **still present in this file, unremoved** — nothing
+was deleted from bulk's code. What actually happened: (1) `vagary-platform` independently **ported/rebuilt**
+an equivalent fanout module (`backend/framework/notifications/fanout/`, commits `3ae5553`+`3f337a7`) rather
+than importing bulk's code; (2) bulk gained an **opt-in adapter** (OW-698, commit `26efa91`) in `make_request()`
+that can delegate egress to the fleet's new `vagary-core/services/webhook-egress` service (ADR-105) when
+`FLEET_WEBHOOK_EGRESS_URL` is set — **it is unset today, so the adapter is inert and bulk's original inline
+egress path is what would run if bulk were ever redeployed.** Nothing functional is lost; the repo is kept
+**public (MIT), reference / re-deployment template only.**
 Historical identity follows.
 
 `bulk` is a **production-grade CSV-driven bulk webhook/API firing engine** with adaptive throttling, checkpoint/resume, watchdog auto-processing, REST status API, and SQLite job tracking. Single-file Python app (~191 KB). Public Cramraika org repo, MIT. Renamed from `bulk_api_trigger` → `bulk` 2026-04-19. Supersedes archived `webhook_trigger`. Vagary Labs brand: **OSS Utilities** (sponsor-ready).
@@ -105,7 +111,7 @@ Mail | DNS | RP | Orch | Obs | Backup | Sup | Sec | Tun | Err | Wflw | Spec
 ## Cross-references
 
 - `platform-docs/05-architecture/part-B-service-appendices/products/bulk.md` (or automation tier)
-- `vagary-platform/CLAUDE.md` § Dependency Graph (bulk being absorbed as platform notifications-fanout module; A1 refactor at commits `3ae5553` + `3f337a7`; standalone Coolify app keeps running until retirement workstream opens)
+- `vagary-platform/CLAUDE.md` § Dependency Graph (platform notifications-fanout module ported from bulk's design, A1 refactor at commits `3ae5553` + `3f337a7`; bulk's own standalone Coolify app is now decommissioned — retirement workstream closed 2026-07-06 per `087c4a1`)
 - `~/.claude/conventions/universal-claudemd.md` §41 brand architecture (OSS Utilities)
 
 ## Migration from v1
