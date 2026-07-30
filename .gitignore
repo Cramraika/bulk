@@ -46,3 +46,6 @@ Thumbs.db
 .gitnexusignore
 .serena/
 graphify-out/
+
+# Internal fleet context — must not be published (public repo)
+CLAUDE.md
