@@ -1,416 +1,321 @@
-# 🚀 Enhanced Bulk API Trigger Platform v2.0
+# bulk
 
-> ⚠️ **No longer actively maintained (2026-07-06).** This project is archived and kept public as a
-> reference. It still works for its purpose below; community forks and contributions are welcome.
+Fire a large number of HTTP requests from a CSV file, with retries, adaptive rate limiting, resume
+after interruption, a REST API, and a SQLite record of every request.
 
-> **Fire thousands of webhooks/APIs from a CSV — with resume, rate-limiting, and real-time monitoring.**
-
-[![GitHub Sponsors](https://img.shields.io/github/sponsors/Cramraika?logo=github&label=Sponsor)](https://github.com/sponsors/Cramraika)
-[![Stars](https://img.shields.io/github/stars/Cramraika/bulk?style=social)](https://github.com/Cramraika/bulk/stargazers)
-[![Docker](https://img.shields.io/badge/docker-ready-blue?logo=docker)](./Dockerfile)
 [![License](https://img.shields.io/github/license/Cramraika/bulk)](./LICENSE)
+[![Docker](https://img.shields.io/badge/docker-ready-blue?logo=docker)](./Dockerfile)
+[![Stars](https://img.shields.io/github/stars/Cramraika/bulk?style=social)](https://github.com/Cramraika/bulk/stargazers)
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/Cramraika?logo=github&label=Sponsor)](https://github.com/sponsors/Cramraika)
 
-Production-ready platform for triggering thousands of webhooks/APIs with advanced features including REST API endpoints, resume support, file watchdog, auto-processing, comprehensive notifications, and real-time monitoring.
+## What it does
 
-## 💛 Support
+`webhook_trigger.py` reads a CSV where each row describes one HTTP request — at minimum a target
+URL, optionally a method, JSON body, and headers — and sends them through a thread pool. Around that
+core loop it provides:
 
-If this platform powers your operations, [sponsor on GitHub](https://github.com/sponsors/Cramraika) — your support keeps it maintained and funds new adapters (Salesforce, HubSpot, LeadSquared). Or [reach out](https://chinmayramraika.in) about enterprise deployment and custom integrations.
+- **Retries** with exponential backoff, honouring the `Retry-After` header.
+- **Adaptive rate limiting** that slows down as the error rate climbs.
+- **Resume**: progress is checkpointed to a marker file, so an interrupted run continues from the
+  last saved row instead of re-sending everything.
+- **A REST API** on a built-in HTTP server, so runs can be triggered and inspected remotely.
+- **A directory watcher** that picks up CSV files dropped into a watched folder and processes them
+  automatically, archiving or rejecting each file afterwards.
+- **A SQLite database** recording every request and every job.
+- **Slack and email notifications** for job start, progress, and completion.
 
-## ✨ Key Features
+Everything lives in one Python file with no web framework — the HTTP server is
+`http.server` from the standard library.
 
-### Core Capabilities
-- **🔥 Bulk Processing**: Handle thousands of API calls efficiently with thread pooling
-- **🔄 Resume Support**: Automatic checkpoint saving and resume from last position
-- **🌐 REST API**: Full-featured webhook endpoints for remote triggering
-- **👀 Smart File Watching**: Automatic detection and processing of new CSV files
-- **⚡ Dynamic Rate Limiting**: Intelligent rate adjustment based on success/error rates
-- **🔁 Smart Retry Logic**: Exponential backoff with Retry-After header support
-- **📊 SQLite Database**: Complete job history and request tracking
-- **📈 Health Monitoring**: Built-in HTTP server with comprehensive endpoints
+### Who it is for
 
-### Enterprise Features
-- **🔔 Notifications**: Email and Slack integration with rich formatting
-- **🔐 API Authentication**: Optional Bearer token authentication
-- **⚖️ Rate Limiting**: Per-IP rate limiting for API endpoints
-- **🛡️ Deduplication**: File hash-based duplicate detection
-- **📁 File Management**: Automatic archiving and rejection handling
-- **💾 Database Backups**: Automatic scheduled backups
-- **🐳 Cloud Ready**: Docker support with health checks
+Anyone with a list of HTTP calls to make and a reason to care whether they succeeded: backfilling
+webhooks after an outage, replaying events into a downstream system, bulk-notifying an integration,
+or driving a one-off migration through someone's API.
 
-## 🚀 Quick Start
+### Who it is not for
 
-### Docker Deployment (Recommended)
+It is a single-process batch runner, not a distributed queue. There is no clustering, no scheduler
+daemon, and no multi-tenancy.
+
+## Requirements
+
+- Python 3 with the packages in `requirements.txt` (`requests`, `tqdm`, `PyYAML`, `watchdog`,
+  `python-dateutil`, and `sentry-sdk` for optional error reporting).
+- Optionally Docker and Docker Compose — a `Dockerfile` and `docker-compose.yml` are included.
+
+## Install
 
 ```bash
-# Clone repository
 git clone https://github.com/Cramraika/bulk.git
 cd bulk
-
-# Create directory structure
-mkdir -p data/{csv/{processed,duplicates,rejected},reports,logs,backups}
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your settings
-
-# Start with Docker Compose
-docker-compose up -d
-
-# Check logs
-docker-compose logs -f bulk-api-trigger
+pip install -r requirements.txt
 ```
 
-### Local Development
+Generate a starter config and inspect the interactive mode:
 
 ```bash
-pip install -r requirements.txt
 python webhook_trigger.py --create-config
 python webhook_trigger.py --interactive
 ```
 
-## 📂 Directory Structure
+Note that `--create-config` and `--interactive` are special-cased as the **first argument only**.
+They are not argparse flags, so `python webhook_trigger.py data.csv --interactive` silently ignores
+the flag and runs a normal CSV job.
 
-```
-/app/
-├── data/
-│   ├── csv/                    # 📁 Incoming CSV files (watched)
-│   │   ├── processed/          # ✅ Successfully processed files
-│   │   ├── duplicates/         # 🔄 Duplicate files (by hash)
-│   │   └── rejected/           # ❌ Invalid files
-│   ├── reports/                # 📊 JSON job reports & resume markers
-│   ├── logs/                   # 📝 Application logs
-│   ├── backups/                # 💾 Database backups
-│   └── webhook_results.db      # 🗄️ SQLite job database
-└── webhook_trigger.py          # 🎯 Main application
-```
-
-## 🌐 REST API Endpoints
-
-### Webhook Triggering
+### Docker
 
 ```bash
-# Trigger single CSV file
-curl -X POST http://localhost:8000/trigger \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -d '{
-    "csv_file": "/app/data/csv/webhooks.csv",
-    "job_name": "API Triggered Job",
-    "resume": true,
-    "force_restart": false
-  }'
-
-# Batch trigger multiple files
-curl -X POST http://localhost:8000/trigger/batch \
-  -H "Content-Type: application/json" \
-  -d '{
-    "csv_files": [
-      "/app/data/csv/file1.csv",
-      "/app/data/csv/file2.csv"
-    ]
-  }'
+mkdir -p data/{csv/{processed,duplicates,rejected},reports,logs,backups}
+cp .env.example .env      # then edit .env
+docker-compose up -d
+docker-compose logs -f
 ```
 
-### Resume Management
+The container defaults assume the `/app/data` layout above — `DATABASE_PATH` defaults to
+`/app/data/webhook_results.db` and `WATCH_PATHS` to `/app/data/csv`. Override both if you run
+outside Docker.
+
+## Usage
+
+```
+python webhook_trigger.py <csv_file> [options]
+```
+
+The positional argument accepts a path to a CSV file, or one of two keywords:
+
+| Value | Behaviour |
+|---|---|
+| a file path | Process that CSV |
+| `auto` | Auto-discover CSV files to process |
+| `watchdog` | Run in directory-monitoring mode |
+
+### Options
+
+These are the complete argparse flags, as defined in the source:
+
+| Flag | Short | Type | Default | Description |
+|---|---|---|---|---|
+| `--config` | `-c` | path | — | Configuration file (YAML or JSON) |
+| `--job-name` | `-n` | string | — | Custom job name |
+| `--skip-rows` | `-s` | int | `0` | Number of rows to skip |
+| `--keep-alive` | `-k` | flag | off | Keep the process running with the watchdog |
+| `--workers` | `-w` | int | — | Number of parallel workers |
+| `--rate-limit` | `-r` | float | — | Base rate limit, in requests per second |
+| `--verbose` | `-v` | flag | off | Verbose logging |
+| `--dry-run` | `-d` | flag | off | Validate the CSV without sending requests |
+| `--watchdog` | | flag | off | Enable file monitoring |
+| `--no-watchdog` | | flag | off | Disable file monitoring |
+| `--health-port` | | int | `8000` | Port for the health-check server |
+
+When `--workers` or `--rate-limit` are omitted, the corresponding environment variable is used.
+
+### Examples
 
 ```bash
-# Check resume status
-curl -X POST http://localhost:8000/resume/status \
-  -d '{"csv_file": "/app/data/csv/webhooks.csv"}'
+# Validate a file without sending anything
+python webhook_trigger.py webhooks.csv --dry-run -v
 
-# Clear resume marker
-curl -X POST http://localhost:8000/resume/clear \
-  -d '{"csv_file": "/app/data/csv/webhooks.csv"}'
+# Run with explicit concurrency and pacing
+python webhook_trigger.py webhooks.csv \
+  --job-name "October backfill" \
+  --workers 10 \
+  --rate-limit 5.0
 
-# View all resume markers
-curl http://localhost:8000/resume/stats
+# Resume: re-running the same file continues from the last checkpoint
+python webhook_trigger.py large_file.csv
+
+# Watch a directory and stay running
+python webhook_trigger.py watchdog --keep-alive
 ```
 
-### Monitoring
+## CSV format
 
-```bash
-# System health
-curl http://localhost:8000/health
+Only **`webhook_url`** is required by default. The required set is configurable through
+`CSV_REQUIRED_COLUMNS` (comma-separated). Header names are normalised, so casing and surrounding
+whitespace do not matter.
 
-# Active jobs status
-curl http://localhost:8000/status
+| Column | Required | Notes |
+|---|---|---|
+| `webhook_url` | yes | Target URL. Validated before sending. |
+| `method` | no | HTTP method. **Defaults to `GET`** when the column is absent or empty. |
+| `payload` | no | Request body, as JSON. |
+| `header`, `headers`, or `headers_sent` | no | Custom headers, as JSON. Any of the three names is accepted. |
+| `name` | no | Friendly identifier, recorded with the result. |
+| `group` | no | Category or grouping label. |
 
-# Job history
-curl http://localhost:8000/jobs
-
-# Specific job details
-curl http://localhost:8000/jobs/{job_id}
-
-# Job errors
-curl http://localhost:8000/jobs/{job_id}/errors
-
-# Job report
-curl http://localhost:8000/jobs/{job_id}/report
-
-# System metrics
-curl http://localhost:8000/metrics
-```
-
-## 📊 CSV File Format
-
-### Required Column
-- `webhook_url` - Target URL for the HTTP request
-
-### Optional Columns
-
-| Column | Description | Example |
-|--------|-------------|---------|
-| `method` | HTTP method | POST, GET, PUT |
-| `payload` | Request body (JSON) | `{"key": "value"}` |
-| `header` or `headers` | Custom headers (JSON) | `{"Authorization": "Bearer token"}` |
-| `name` | Friendly identifier | User Registration Hook |
-| `group` | Category/grouping | notifications |
-
-### Example CSV
+The `GET` default is easy to trip over: if you intend to POST, include a `method` column.
 
 ```csv
 webhook_url,method,payload,header,name,group
-https://api.example.com/hook1,POST,"{""user"":""john""}","{""X-API-Key"":""secret""}",User Create,users
-https://slack.com/hook2,POST,"{""text"":""Alert!""}","{""Content-Type"":""application/json""}",Slack Alert,alerts
+https://api.example.com/hook1,POST,"{""user"":""john""}","{""Content-Type"":""application/json""}",User Create,users
+https://api.example.com/hook2,POST,"{""text"":""Alert""}","{""Content-Type"":""application/json""}",Alert,alerts
 ```
 
-## ⚙️ Configuration
+Header count and payload size are capped internally, and oversized values are truncated.
 
-### Core Settings
+## Configuration
+
+Configuration comes from environment variables, optionally overlaid by a YAML or JSON file passed
+with `--config`. The source reads roughly 79 variables; the most commonly used are below, with their
+**actual defaults from the code**.
+
+### Throughput
 
 ```bash
-# Performance
-MAX_WORKERS=5                    # Concurrent threads
-BASE_RATE_LIMIT=2.0             # Seconds between requests
-MAX_RATE_LIMIT=10.0             # Max delay on errors
+MAX_WORKERS=3                    # concurrent worker threads
+BASE_RATE_LIMIT=3.0              # requests per second (not a delay)
+MAX_RATE_LIMIT=5.0               # ceiling used by adaptive rate adjustment
+MAX_RETRIES=3                    # retry attempts per request
+REQUEST_TIMEOUT=30               # per-request timeout, seconds
+CSV_CHUNK_SIZE=1000              # rows read per chunk
+```
 
-# Resume functionality
+`BASE_RATE_LIMIT` is expressed in **requests per second**. The rate limiter converts it to a
+minimum interval between request starts (`1 / rate`); it is deliberately approximate pacing rather
+than a strict token bucket, and concurrency is bounded by `MAX_WORKERS`.
+
+### Resume
+
+```bash
 RESUME_ENABLED=true
-RESUME_CHECKPOINT_INTERVAL=100  # Save every N rows
-RESUME_MAX_AGE_DAYS=7           # Ignore old checkpoints
-
-# API Security
-WEBHOOK_AUTH_TOKEN=secret123    # Bearer token for API
-WEBHOOK_RATE_LIMIT=60           # Requests per minute
+RESUME_CHECKPOINT_INTERVAL=100   # save progress every N rows
+RESUME_MAX_AGE_DAYS=7            # ignore checkpoints older than this
 ```
 
-### Notifications
+Checkpoints are keyed by a hash of the input file, so editing the CSV invalidates the checkpoint and
+the job starts over rather than resuming at a row that no longer means the same thing.
+
+### API server
 
 ```bash
-# Slack
+HEALTH_PORT=8000
+WEBHOOK_AUTH_TOKEN=              # if set, required as a Bearer token
+WEBHOOK_RATE_LIMIT=60            # per-IP requests per minute
+```
+
+Leaving `WEBHOOK_AUTH_TOKEN` unset leaves the API unauthenticated. Set it before exposing the port
+anywhere but localhost.
+
+### Storage and files
+
+```bash
+DATABASE_PATH=/app/data/webhook_results.db
+WATCH_PATHS=/app/data/csv
+REPORT_KEEP=200                  # job reports retained before pruning
+```
+
+### Notifications and error reporting
+
+```bash
 SLACK_NOTIFICATIONS=true
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXX
+SLACK_WEBHOOK_URL=
 SLACK_NOTIFY_PROGRESS=true
 SLACK_PROGRESS_EVERY_N=25
 
-# Email
 EMAIL_NOTIFICATIONS=true
-EMAIL_SMTP_SERVER=smtp.gmail.com
-EMAIL_USERNAME=notifications@company.com
-EMAIL_PASSWORD=app_password_here
-EMAIL_RECIPIENTS=team@company.com
+EMAIL_SMTP_SERVER=
+EMAIL_SMTP_PORT=
+EMAIL_USERNAME=
+EMAIL_PASSWORD=
+EMAIL_RECIPIENTS=
+
+SENTRY_DSN=                      # optional; Sentry is initialised only if set
 ```
 
-## 🎯 Usage Examples
+See `.env.example` and `config.yaml` for the full surface.
 
-### Automatic Processing
+## REST API
+
+The built-in server exposes these routes:
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/` | Index |
+| GET | `/health` | Health check |
+| GET | `/status` | Active job status |
+| GET | `/jobs` | Job history |
+| GET | `/jobs/{job_id}` | Job detail (also `/errors` and `/report` sub-paths) |
+| GET | `/metrics` | System metrics |
+| GET | `/config` | Effective configuration |
+| GET | `/resume/stats` | All resume markers |
+| POST | `/trigger` | Start a job for one CSV file |
+| POST | `/trigger/batch` | Start jobs for several CSV files |
+| POST | `/resume/status` | Resume state for a file |
+| POST | `/resume/clear` | Clear a file's resume marker |
 
 ```bash
-# Files placed in watch directory are auto-processed
-cp webhooks.csv /app/data/csv/
-# Monitor processing
-curl http://localhost:8000/status
+curl -X POST http://localhost:8000/trigger \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $WEBHOOK_AUTH_TOKEN" \
+  -d '{"csv_file": "/app/data/csv/webhooks.csv", "job_name": "API job", "resume": true}'
+
+curl http://localhost:8000/health
+curl http://localhost:8000/jobs
 ```
 
-### Manual Processing
+## Data model
 
-```bash
-# Process specific file
-python webhook_trigger.py /path/to/webhooks.csv \
-  --job-name "Manual Job" \
-  --workers 10 \
-  --rate-limit 1.0
+SQLite, at `DATABASE_PATH`. Five tables are created on startup:
 
-# Dry run to validate
-python webhook_trigger.py webhooks.csv --dry-run
-```
-
-### Resume from Checkpoint
-
-```bash
-# Job automatically resumes from last checkpoint
-python webhook_trigger.py large_file.csv
-# Interrupted at row 5000? Next run starts from 5000
-```
-
-## 🔄 Resume Functionality
-
-The platform automatically saves progress checkpoints during processing:
-
-- **Automatic Checkpointing**: Progress saved every 100 rows (configurable)
-- **Smart Resume**: Detects previous progress and continues from last checkpoint
-- **Hash Validation**: Ensures file hasn't changed since checkpoint
-- **Age Checking**: Ignores checkpoints older than 7 days
-- **API Control**: Force restart or check status via REST endpoints
-
-## 🐳 Production Deployment
-
-### Docker Compose
-
-```yaml
-version: '3.8'
-services:
-  bulk-api-trigger:
-    build: .
-    container_name: bulk-api-trigger
-    restart: unless-stopped
-    env_file: .env
-    volumes:
-      - ./data:/app/data
-    ports:
-      - "8000:8000"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-```
-
-### Kubernetes
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: bulk-api-trigger
-spec:
-  replicas: 1
-  template:
-    spec:
-      containers:
-      - name: bulk-api-trigger
-        image: your-registry/bulk-api-trigger:latest
-        ports:
-        - containerPort: 8000
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-        envFrom:
-        - secretRef:
-            name: bulk-api-secrets
-```
-
-## 📈 Monitoring & Observability
-
-### Health Check Response
-
-```json
-{
-  "status": "healthy",
-  "system": {
-    "watchdog_enabled": true,
-    "watchdog_running": true,
-    "queue_size": 2,
-    "database_accessible": true
-  }
-}
-```
-
-### Job Statistics
+| Table | Contents |
+|---|---|
+| `webhook_results` | One row per request: `job_id`, `url`, `method`, `status`, `status_code`, `response_time`, `timestamp`, `attempt`, `error_message`, `response_preview`, `request_size`, `response_size`, `headers_sent` |
+| `job_history` | One row per job: `job_id`, `job_name`, `csv_file`, `total_requests`, `successful_requests`, `failed_requests`, `start_time`, `end_time`, `duration_seconds`, `status`, `triggered_by`, `average_response_time` |
+| `scheduled_jobs` | Job schedule definitions |
+| `file_tracking` | Per-file hash, status, and processing history |
+| `system_metrics` | Time-series metric samples |
 
 ```sql
--- Success rate by job
-SELECT 
-  job_name,
-  total_requests,
-  successful_requests,
-  ROUND(successful_requests * 100.0 / total_requests, 2) as success_rate
-FROM job_history 
+SELECT job_name,
+       total_requests,
+       successful_requests,
+       ROUND(successful_requests * 100.0 / total_requests, 2) AS success_rate
+FROM job_history
 WHERE start_time >= datetime('now', '-7 days')
 ORDER BY start_time DESC;
-
--- Average response times
-SELECT 
-  DATE(timestamp) as date,
-  AVG(response_time) as avg_response,
-  COUNT(*) as total_requests
-FROM webhook_results
-GROUP BY DATE(timestamp);
 ```
 
-## 🚨 Troubleshooting
+## Directory layout
 
-### Common Issues
-
-| Issue | Solution |
-|-------|----------|
-| Files not processing | Check watchdog: `curl /health`, verify CSV format |
-| High memory usage | Reduce `MAX_WORKERS` and `CSV_CHUNK_SIZE` |
-| Rate limit errors | Increase `BASE_RATE_LIMIT` value |
-| Resume not working | Check `RESUME_ENABLED=true`, verify checkpoint age |
-| API authentication failing | Verify `WEBHOOK_AUTH_TOKEN` matches Bearer token |
-
-### Debug Commands
-
-```bash
-# Check system status
-curl http://localhost:8000/status
-
-# View recent errors
-curl http://localhost:8000/jobs/{job_id}/errors
-
-# Check resume markers
-curl http://localhost:8000/resume/stats
-
-# Validate CSV file
-python webhook_trigger.py file.csv --dry-run -v
+```
+data/
+├── csv/            # watched for incoming files
+│   ├── processed/  # successfully processed
+│   ├── duplicates/ # rejected by file-hash deduplication
+│   └── rejected/   # failed validation
+├── reports/        # JSON job reports and resume markers
+├── logs/
+├── backups/        # database backups
+└── webhook_results.db
 ```
 
-## 🔒 Security Best Practices
+## Limitations and gotchas
 
-- **API Authentication**: Set `WEBHOOK_AUTH_TOKEN` for production
-- **HTTPS Only**: Use HTTPS URLs for all webhooks
-- **Network Security**: Implement firewall rules
-- **Secrets Management**: Use environment variables or secrets manager
-- **Rate Limiting**: Configure appropriate rate limits
-- **Monitoring**: Enable logging and alerts
+- **`method` defaults to `GET`.** Rows without an explicit `method` are sent as GET, which is rarely
+  what a webhook backfill wants.
+- **The API is unauthenticated unless `WEBHOOK_AUTH_TOKEN` is set.** There is per-IP rate limiting,
+  but no auth by default.
+- **`--interactive` and `--create-config` only work as the first argument.** Anywhere else they are
+  ignored without warning.
+- **Single process, single node.** Concurrency is a thread pool inside one process. Scaling out means
+  splitting the CSV yourself.
+- **Rate limiting is approximate.** It paces request starts and adapts to error rates; it is not a
+  strict token bucket and does not guarantee a hard ceiling.
+- **Editing a CSV invalidates its resume checkpoint** (checkpoints are hash-keyed), and checkpoints
+  older than `RESUME_MAX_AGE_DAYS` are ignored.
+- **Defaults assume the Docker layout.** `DATABASE_PATH` and `WATCH_PATHS` point at `/app/data`; set
+  them explicitly when running locally.
+- **`fleet_egress_client.py` is an optional integration** with a service that is not publicly
+  available. It stays inert unless `FLEET_WEBHOOK_EGRESS_URL` is set, and can be ignored.
 
-## 📊 Performance Tuning
+## Contributing
 
-### High Volume (10k+ webhooks)
+Issues and pull requests are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) and
+[SECURITY.md](./SECURITY.md).
 
-```bash
-MAX_WORKERS=20
-BASE_RATE_LIMIT=0.5
-CSV_CHUNK_SIZE=2000
-RESUME_CHECKPOINT_INTERVAL=500
-```
+## License
 
-### Memory Constrained
+MIT © 2026 Vagary Labs LLP. See [LICENSE](./LICENSE).
 
-```bash
-MAX_WORKERS=2
-CSV_CHUNK_SIZE=500
-REPORT_KEEP=50
-DATABASE_BACKUP_INTERVAL_HOURS=168
-```
-
-### API Gateway Compatible
-
-```bash
-WEBHOOK_RATE_LIMIT=100
-MAX_WORKERS=10
-BASE_RATE_LIMIT=1.0
-```
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request. See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
-
-## 📄 License
-
-This project is licensed under the [MIT License](./LICENSE) — free to use, modify, and distribute.
-
-
-Built with ❤️ for reliable webhook processing at scale
+A Vagary Labs project.
