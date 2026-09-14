@@ -101,7 +101,9 @@ jobs:
             --format table \
             .
 
-      - name: Trivy filesystem scan (SARIF for artifact)
+      # The SARIF artifact had no reader and the account budget rejects uploads (OW-1138), so this
+      # step now counts findings into the run summary instead of writing a file nobody opens.
+      - name: Trivy findings summary
         if: always()
         run: |
           trivy fs \
@@ -109,6 +111,14 @@ jobs:
             --ignore-unfixed \
             --no-progress \
             --exit-code 0 \
-            --format sarif \
-            --output trivy-results.sarif \
+            --format json \
+            --output trivy-results.json \
             .
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          counts = {}
+          for result in json.load(open("trivy-results.json")).get("Results") or []:
+              for v in result.get("Vulnerabilities") or []:
+                  counts[v.get("Severity")] = counts.get(v.get("Severity"), 0) + 1
+          print(f"trivy fs (HIGH,CRITICAL, fixed only): CRITICAL={counts.get('CRITICAL', 0)} HIGH={counts.get('HIGH', 0)}")
+          PY
